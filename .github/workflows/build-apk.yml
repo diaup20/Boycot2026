@@ -37,30 +37,49 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y wget unzip libglu1-mesa
 
-          # Create SDK root
           mkdir -p "$ANDROID_HOME"
 
-          # Download command-line tools (update the version if needed)
           cd /tmp
           wget -O cmdline-tools.zip "https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip"
           unzip -q cmdline-tools.zip
 
-          # Place command-line tools into cmdline-tools/latest as required by sdkmanager
           mkdir -p "$ANDROID_HOME/cmdline-tools/latest"
           mv cmdline-tools/* "$ANDROID_HOME/cmdline-tools/latest/"
 
-          # Ensure binaries are executable
           chmod -R a+rx "$ANDROID_HOME"
 
-          # Use sdkmanager with explicit --sdk_root to avoid lookup issues
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME"
 
-          # Accept licenses and install required packages
           yes | $SDKMANAGER --licenses
           $SDKMANAGER "platform-tools" "platforms;android-31" "build-tools;31.0.0"
 
-          # Make platform-tools and tools available to PATH for subsequent steps in this run
           echo "PATH=$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV
+
+      - name: Debug: list repo root (for diagnostics)
+        run: |
+          echo "Repo root listing:"
+          ls -la
+          echo "Find top-level files/directories:"
+          find . -maxdepth 2 -type d -print
+
+      - name: Create Android platform (if missing)
+        run: |
+          if [ ! -d "android" ] || [ ! -f "android/app/build.gradle" ]; then
+            echo "android/ or android/app/build.gradle missing — creating Android platform via flutter create --platforms=android ."
+            flutter create --platforms=android .
+          else
+            echo "android/ detected — skipping flutter create"
+          fi
+
+      - name: Verify android folder
+        run: |
+          if [ ! -f "android/app/build.gradle" ]; then
+            echo "::error::android/app/build.gradle not found — CI cannot proceed"
+            ls -la android || true
+            exit 1
+          else
+            echo "android/app/build.gradle exists, continuing..."
+          fi
 
       - name: Flutter pub get
         run: flutter pub get
