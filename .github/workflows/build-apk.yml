@@ -1,0 +1,55 @@
+name: Build APK (debug)
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 'stable'
+
+      - name: Install Android SDK tools and accept licenses
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget tar unzip libglu1-mesa
+          # Ensure sdkmanager binary exists
+          if [ -d "$ANDROID_HOME/tools/bin" ]; then
+            yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses
+            $ANDROID_HOME/tools/bin/sdkmanager "platform-tools" "platforms;android-31" "build-tools;31.0.0"
+          else
+            echo "Android SDK manager not found at $ANDROID_HOME/tools/bin. Listing $ANDROID_HOME:"
+            ls -la $ANDROID_HOME || true
+            exit 1
+          fi
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Build debug APK
+        run: flutter build apk --debug --no-shrink
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug.apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
