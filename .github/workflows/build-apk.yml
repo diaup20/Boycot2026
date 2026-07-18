@@ -65,7 +65,7 @@ jobs:
           # Export PATH for following steps
           echo "PATH=$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV
 
-      - name: Debug: list repo root (for diagnostics)
+      - name: "Debug: list repo root (for diagnostics)"
         run: |
           echo "Repo root listing:"
           ls -la
