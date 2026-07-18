@@ -33,26 +33,36 @@ jobs:
       - name: Install Android SDK command-line tools and accept licenses
         env:
           ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
+        shell: bash
         run: |
+          set -euo pipefail
+
           sudo apt-get update
           sudo apt-get install -y wget unzip libglu1-mesa
 
+          # Create SDK root
           mkdir -p "$ANDROID_HOME"
 
+          # Download command-line tools
           cd /tmp
           wget -O cmdline-tools.zip "https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip"
           unzip -q cmdline-tools.zip
 
+          # Place command-line tools into cmdline-tools/latest as required by sdkmanager
           mkdir -p "$ANDROID_HOME/cmdline-tools/latest"
           mv cmdline-tools/* "$ANDROID_HOME/cmdline-tools/latest/"
 
+          # Ensure binaries are executable
           chmod -R a+rx "$ANDROID_HOME"
 
-          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME"
+          # Use full path to sdkmanager to avoid quoting/assignment issues
+          SDKMANAGER_PATH="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          # Accept licenses
+          yes | "$SDKMANAGER_PATH" --sdk_root="$ANDROID_HOME" --licenses
+          # Install required packages
+          "$SDKMANAGER_PATH" --sdk_root="$ANDROID_HOME" "platform-tools" "platforms;android-31" "build-tools;31.0.0"
 
-          yes | $SDKMANAGER --licenses
-          $SDKMANAGER "platform-tools" "platforms;android-31" "build-tools;31.0.0"
-
+          # Export PATH for following steps
           echo "PATH=$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV
 
       - name: Debug: list repo root (for diagnostics)
