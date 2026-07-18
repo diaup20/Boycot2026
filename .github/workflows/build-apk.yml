@@ -30,21 +30,37 @@ jobs:
       - name: Set ANDROID_SDK_ROOT
         run: echo "ANDROID_SDK_ROOT=$HOME/Android/Sdk" >> $GITHUB_ENV
 
-      - name: Install Android SDK tools and accept licenses
+      - name: Install Android SDK command-line tools and accept licenses
         env:
           ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
         run: |
           sudo apt-get update
-          sudo apt-get install -y wget tar unzip libglu1-mesa
-          # Ensure sdkmanager binary exists
-          if [ -d "$ANDROID_HOME/tools/bin" ]; then
-            yes | $ANDROID_HOME/tools/bin/sdkmanager --licenses
-            $ANDROID_HOME/tools/bin/sdkmanager "platform-tools" "platforms;android-31" "build-tools;31.0.0"
-          else
-            echo "Android SDK manager not found at $ANDROID_HOME/tools/bin. Listing $ANDROID_HOME:"
-            ls -la $ANDROID_HOME || true
-            exit 1
-          fi
+          sudo apt-get install -y wget unzip libglu1-mesa
+
+          # Create SDK root
+          mkdir -p "$ANDROID_HOME"
+
+          # Download command-line tools (update the version if needed)
+          cd /tmp
+          wget -O cmdline-tools.zip "https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip"
+          unzip -q cmdline-tools.zip
+
+          # Place command-line tools into cmdline-tools/latest as required by sdkmanager
+          mkdir -p "$ANDROID_HOME/cmdline-tools/latest"
+          mv cmdline-tools/* "$ANDROID_HOME/cmdline-tools/latest/"
+
+          # Ensure binaries are executable
+          chmod -R a+rx "$ANDROID_HOME"
+
+          # Use sdkmanager with explicit --sdk_root to avoid lookup issues
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME"
+
+          # Accept licenses and install required packages
+          yes | $SDKMANAGER --licenses
+          $SDKMANAGER "platform-tools" "platforms;android-31" "build-tools;31.0.0"
+
+          # Make platform-tools and tools available to PATH for subsequent steps in this run
+          echo "PATH=$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV
 
       - name: Flutter pub get
         run: flutter pub get
